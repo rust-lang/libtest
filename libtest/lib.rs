@@ -19,7 +19,6 @@
 
 #![deny(rust_2018_idioms)]
 #![crate_name = "libtest"]
-#![unstable(feature = "test", issue = "27812")]
 #![doc(html_root_url = "https://doc.rust-lang.org/nightly/", test(attr(deny(warnings))))]
 #![feature(asm)]
 #![feature(fnbox)]

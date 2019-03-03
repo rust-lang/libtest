@@ -1,8 +1,13 @@
 [package]
 authors = ["The Rust Project Developers"]
 name = "term"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2018"
+description = "Terminal formatting library"
+license = "MIT/Apache-2.0"
+documentation = "https://docs.rs/libterm"
+homepage = "https://github.com/rust-lang/libtest"
+repository = "https://github.com/rust-lang/libtest"
 
 [lib]
 name = "term"
