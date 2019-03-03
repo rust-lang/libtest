@@ -16,4 +16,4 @@ crate-type = ["dylib", "rlib"]
 
 [dependencies]
 getopts = "0.2"
-term = { version = "0.0.1", path = "../libterm" }
+rustc_term = { version = "0.0.1", path = "../libterm" }

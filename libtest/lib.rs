@@ -20,6 +20,7 @@
 #![deny(rust_2018_idioms)]
 #![crate_name = "libtest"]
 #![doc(html_root_url = "https://doc.rust-lang.org/nightly/", test(attr(deny(warnings))))]
+#![unstable(feature = "test", issue = "27812")]
 #![feature(asm)]
 #![feature(fnbox)]
 #![cfg_attr(any(unix, target_os = "cloudabi"), feature(libc, rustc_private))]
@@ -33,7 +34,7 @@
 use getopts;
 #[cfg(any(unix, target_os = "cloudabi"))]
 extern crate libc;
-use term;
+use rustc_term as term;
 
 // FIXME(#54291): rustc and/or LLVM don't yet support building with panic-unwind
 //                on aarch64-pc-windows-msvc, so we don't link libtest against
