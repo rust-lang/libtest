@@ -1,40 +1,18 @@
-//! Support code for rustc's built in unit-test and micro-benchmarking
-//! framework.
-//!
-//! Almost all user code will only be interested in `Bencher` and
-//! `black_box`. All other interactions (such as writing tests and
-//! benchmarks themselves) should be done via the `#[test]` and
-//! `#[bench]` attributes.
-//!
-//! See the [Testing Chapter](../book/ch11-00-testing.html) of the book for more details.
-
-// Currently, not much of this is meant for users. It is intended to
-// support the simplest interface possible for representing and
-// running tests while providing a base that other test frameworks may
-// build off of.
-
-// N.B., this is also specified in this crate's Cargo.toml, but libsyntax contains logic specific to
-// this crate, which relies on this attribute (rather than the value of `--crate-name` passed by
-// cargo) to detect this crate.
-
-#![deny(rust_2018_idioms)]
-#![crate_name = "libtest"]
-#![doc(html_root_url = "https://doc.rust-lang.org/nightly/", test(attr(deny(warnings))))]
-#![unstable(feature = "test", issue = "27812")]
-#![feature(asm)]
-#![feature(fnbox)]
+//! Rust's built-in unit-test and micro-benchmarking framework.
 #![cfg_attr(any(unix, target_os = "cloudabi"), feature(libc, rustc_private))]
-#![feature(nll)]
+#![feature(fnbox)]
 #![feature(set_stdio)]
 #![feature(panic_unwind)]
-#![feature(staged_api)]
 #![feature(termination_trait_lib)]
 #![feature(test)]
+#![deny(rust_2018_idioms)]
 
 use getopts;
+
+extern crate test;
+
 #[cfg(any(unix, target_os = "cloudabi"))]
 extern crate libc;
-use rustc_term as term;
 
 // FIXME(#54291): rustc and/or LLVM don't yet support building with panic-unwind
 //                on aarch64-pc-windows-msvc, so we don't link libtest against
@@ -75,15 +53,6 @@ use std::time::{Duration, Instant};
 const TEST_WARN_TIMEOUT_S: u64 = 60;
 const QUIET_MODE_MAX_COLUMN: usize = 100; // insert a '\n' after 100 tests in quiet mode
 
-// to be used by rustc to compile tests in libtest
-pub mod test {
-    pub use crate::{
-        assert_test_result, filter_tests, parse_opts, run_test, test_main, test_main_static,
-        Bencher, DynTestFn, DynTestName, Metric, MetricMap, Options, RunIgnored, ShouldPanic,
-        StaticBenchFn, StaticTestFn, StaticTestName, TestDesc, TestDescAndFn, TestName, TestOpts,
-        TestResult, TrFailed, TrFailedMsg, TrIgnored, TrOk,
-    };
-}
 
 mod formatters;
 pub mod stats;
@@ -1585,24 +1554,6 @@ impl MetricMap {
 
 // Benchmarking
 
-/// A function that is opaque to the optimizer, to allow benchmarks to
-/// pretend to use outputs to assist in avoiding dead-code
-/// elimination.
-///
-/// This function is a no-op, and does not even read from `dummy`.
-#[cfg(not(any(target_arch = "asmjs", target_arch = "wasm32")))]
-pub fn black_box<T>(dummy: T) -> T {
-    // we need to "use" the argument in some way LLVM can't
-    // introspect.
-    unsafe { asm!("" : : "r"(&dummy)) }
-    dummy
-}
-#[cfg(any(target_arch = "asmjs", target_arch = "wasm32"))]
-#[inline(never)]
-pub fn black_box<T>(dummy: T) -> T {
-    dummy
-}
-
 impl Bencher {
     /// Callback for benchmark functions to run in their body.
     pub fn iter<T, F>(&mut self, mut inner: F)
@@ -1636,7 +1587,7 @@ where
 {
     let start = Instant::now();
     for _ in 0..k {
-        black_box(inner());
+        test::black_box(inner());
     }
     return ns_from_dur(start.elapsed());
 }
@@ -1792,11 +1743,12 @@ pub mod bench {
 #[cfg(test)]
 mod tests {
     use crate::bench;
-    use crate::test::{
+    use crate::{
         filter_tests, parse_opts, run_test, DynTestFn, DynTestName, MetricMap, RunIgnored,
         ShouldPanic, StaticTestName, TestDesc, TestDescAndFn, TestOpts, TrFailed, TrFailedMsg,
         TrIgnored, TrOk,
     };
+    use crate::test::black_box;
     use crate::Bencher;
     use crate::Concurrent;
     use std::sync::mpsc::channel;
