@@ -1,2 +1,2 @@
 [workspace]
-members = [ "libtest", "libterm" ]
+members = [ "libtest" ]
