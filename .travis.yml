@@ -13,11 +13,11 @@ matrix:
     - name: "i686-unknown-linux-gnu"
       env: TARGET=i686-unknown-linux-gnu
     - name: "i686-apple-darwin"
-      env: TARGET=i686-apple-darwin NO_DOCKER=1
+      env: TARGET=i686-apple-darwin
       os: osx
       osx_image: xcode10
     - name: "x86_64-apple-darwin"
-      env: TARGET=x86_64-apple-darwin NO_DOCKER=1
+      env: TARGET=x86_64-apple-darwin
       os: osx
       osx_image: xcode10
       install: true
