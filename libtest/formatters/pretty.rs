@@ -17,7 +17,7 @@ impl<T: Write> PrettyFormatter<T> {
         max_name_len: usize,
         is_multithreaded: bool,
     ) -> Self {
-        PrettyFormatter {
+        Self {
             out,
             use_color,
             max_name_len,
@@ -65,7 +65,7 @@ impl<T: Write> PrettyFormatter<T> {
         color: term::color::Color,
     ) -> io::Result<()> {
         match self.out {
-            Pretty(ref mut term) => {
+            OutputLocation::Pretty(ref mut term) => {
                 if self.use_color {
                     term.fg(color)?;
                 }
@@ -75,7 +75,7 @@ impl<T: Write> PrettyFormatter<T> {
                 }
                 term.flush()
             }
-            Raw(ref mut stdout) => {
+            OutputLocation::Raw(ref mut stdout) => {
                 stdout.write_all(word.as_bytes())?;
                 stdout.flush()
             }
@@ -156,7 +156,7 @@ impl<T: Write> PrettyFormatter<T> {
 
 impl<T: Write> OutputFormatter for PrettyFormatter<T> {
     fn write_run_start(&mut self, test_count: usize) -> io::Result<()> {
-        let noun = if test_count != 1 { "tests" } else { "test" };
+        let noun = if test_count == 1 { "test" } else { "tests" };
         self.write_plain(&format!("\nrunning {} {}\n", test_count, noun))
     }
 
@@ -183,11 +183,13 @@ impl<T: Write> OutputFormatter for PrettyFormatter<T> {
         }
 
         match *result {
-            TrOk => self.write_ok(),
-            TrFailed | TrFailedMsg(_) => self.write_failed(),
-            TrIgnored => self.write_ignored(),
-            TrAllowedFail => self.write_allowed_fail(),
-            TrBench(ref bs) => {
+            TestResult::TrOk => self.write_ok(),
+            TestResult::TrFailed | TestResult::TrFailedMsg(_) => {
+                self.write_failed()
+            }
+            TestResult::TrIgnored => self.write_ignored(),
+            TestResult::TrAllowedFail => self.write_allowed_fail(),
+            TestResult::TrBench(ref bs) => {
                 self.write_bench()?;
                 self.write_plain(&format!(": {}\n", fmt_bench_samples(bs)))
             }

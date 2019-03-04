@@ -59,16 +59,18 @@ impl<T: Write> OutputFormatter for JsonFormatter<T> {
         stdout: &[u8],
     ) -> io::Result<()> {
         match *result {
-            TrOk => self.write_event("test", desc.name.as_slice(), "ok", None),
+            TestResult::TrOk => {
+                self.write_event("test", desc.name.as_slice(), "ok", None)
+            }
 
-            TrFailed => {
-                let extra_data = if stdout.len() > 0 {
+            TestResult::TrFailed => {
+                let extra_data = if stdout.is_empty() {
+                    None
+                } else {
                     Some(format!(
                         r#""stdout": "{}""#,
                         EscapedString(String::from_utf8_lossy(stdout))
                     ))
-                } else {
-                    None
                 };
 
                 self.write_event(
@@ -79,25 +81,25 @@ impl<T: Write> OutputFormatter for JsonFormatter<T> {
                 )
             }
 
-            TrFailedMsg(ref m) => self.write_event(
+            TestResult::TrFailedMsg(ref m) => self.write_event(
                 "test",
                 desc.name.as_slice(),
                 "failed",
                 Some(format!(r#""message": "{}""#, EscapedString(m))),
             ),
 
-            TrIgnored => {
+            TestResult::TrIgnored => {
                 self.write_event("test", desc.name.as_slice(), "ignored", None)
             }
 
-            TrAllowedFail => self.write_event(
+            TestResult::TrAllowedFail => self.write_event(
                 "test",
                 desc.name.as_slice(),
                 "allowed_failure",
                 None,
             ),
 
-            TrBench(ref bs) => {
+            TestResult::TrBench(ref bs) => {
                 let median = bs.ns_iter_summ.median as usize;
                 let deviation =
                     (bs.ns_iter_summ.max - bs.ns_iter_summ.min) as usize;
