@@ -71,7 +71,12 @@ impl<T: Write> OutputFormatter for JsonFormatter<T> {
                     None
                 };
 
-                self.write_event("test", desc.name.as_slice(), "failed", extra_data)
+                self.write_event(
+                    "test",
+                    desc.name.as_slice(),
+                    "failed",
+                    extra_data,
+                )
             }
 
             TrFailedMsg(ref m) => self.write_event(
@@ -81,15 +86,21 @@ impl<T: Write> OutputFormatter for JsonFormatter<T> {
                 Some(format!(r#""message": "{}""#, EscapedString(m))),
             ),
 
-            TrIgnored => self.write_event("test", desc.name.as_slice(), "ignored", None),
-
-            TrAllowedFail => {
-                self.write_event("test", desc.name.as_slice(), "allowed_failure", None)
+            TrIgnored => {
+                self.write_event("test", desc.name.as_slice(), "ignored", None)
             }
+
+            TrAllowedFail => self.write_event(
+                "test",
+                desc.name.as_slice(),
+                "allowed_failure",
+                None,
+            ),
 
             TrBench(ref bs) => {
                 let median = bs.ns_iter_summ.median as usize;
-                let deviation = (bs.ns_iter_summ.max - bs.ns_iter_summ.min) as usize;
+                let deviation =
+                    (bs.ns_iter_summ.max - bs.ns_iter_summ.min) as usize;
 
                 let mbps = if bs.mb_s == 0 {
                     String::new()
@@ -117,7 +128,10 @@ impl<T: Write> OutputFormatter for JsonFormatter<T> {
         ))
     }
 
-    fn write_run_finish(&mut self, state: &ConsoleTestState) -> io::Result<bool> {
+    fn write_run_finish(
+        &mut self,
+        state: &ConsoleTestState,
+    ) -> io::Result<bool> {
         self.write_message(&*format!(
             "{{ \"type\": \"suite\", \
              \"event\": \"{}\", \

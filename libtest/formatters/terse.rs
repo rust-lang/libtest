@@ -54,11 +54,16 @@ impl<T: Write> TerseFormatter<T> {
         color: term::color::Color,
     ) -> io::Result<()> {
         self.write_pretty(result, color)?;
-        if self.test_count % QUIET_MODE_MAX_COLUMN == QUIET_MODE_MAX_COLUMN - 1 {
+        if self.test_count % QUIET_MODE_MAX_COLUMN == QUIET_MODE_MAX_COLUMN - 1
+        {
             // we insert a new line every 100 dots in order to flush the
             // screen when dealing with line-buffered output (e.g., piping to
             // `stamp` in the rust CI).
-            let out = format!(" {}/{}\n", self.test_count+1, self.total_test_count);
+            let out = format!(
+                " {}/{}\n",
+                self.test_count + 1,
+                self.total_test_count
+            );
             self.write_plain(&out)?;
         }
 
@@ -66,7 +71,11 @@ impl<T: Write> TerseFormatter<T> {
         Ok(())
     }
 
-    pub fn write_pretty(&mut self, word: &str, color: term::color::Color) -> io::Result<()> {
+    pub fn write_pretty(
+        &mut self,
+        word: &str,
+        color: term::color::Color,
+    ) -> io::Result<()> {
         match self.out {
             Pretty(ref mut term) => {
                 if self.use_color {
@@ -91,7 +100,10 @@ impl<T: Write> TerseFormatter<T> {
         self.out.flush()
     }
 
-    pub fn write_outputs(&mut self, state: &ConsoleTestState) -> io::Result<()> {
+    pub fn write_outputs(
+        &mut self,
+        state: &ConsoleTestState,
+    ) -> io::Result<()> {
         self.write_plain("\nsuccesses:\n")?;
         let mut successes = Vec::new();
         let mut stdouts = String::new();
@@ -117,7 +129,10 @@ impl<T: Write> TerseFormatter<T> {
         Ok(())
     }
 
-    pub fn write_failures(&mut self, state: &ConsoleTestState) -> io::Result<()> {
+    pub fn write_failures(
+        &mut self,
+        state: &ConsoleTestState,
+    ) -> io::Result<()> {
         self.write_plain("\nfailures:\n")?;
         let mut failures = Vec::new();
         let mut fail_out = String::new();
@@ -170,7 +185,12 @@ impl<T: Write> OutputFormatter for TerseFormatter<T> {
         Ok(())
     }
 
-    fn write_result(&mut self, desc: &TestDesc, result: &TestResult, _: &[u8]) -> io::Result<()> {
+    fn write_result(
+        &mut self,
+        desc: &TestDesc,
+        result: &TestResult,
+        _: &[u8],
+    ) -> io::Result<()> {
         match *result {
             TrOk => self.write_ok(),
             TrFailed | TrFailedMsg(_) => self.write_failed(),
@@ -193,7 +213,10 @@ impl<T: Write> OutputFormatter for TerseFormatter<T> {
         ))
     }
 
-    fn write_run_finish(&mut self, state: &ConsoleTestState) -> io::Result<bool> {
+    fn write_run_finish(
+        &mut self,
+        state: &ConsoleTestState,
+    ) -> io::Result<bool> {
         if state.options.display_output {
             self.write_outputs(state)?;
         }

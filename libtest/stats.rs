@@ -233,7 +233,8 @@ impl Stats for [f64] {
 
     fn median_abs_dev(&self) -> f64 {
         let med = self.median();
-        let abs_devs: Vec<f64> = self.iter().map(|&v| (med - v).abs()).collect();
+        let abs_devs: Vec<f64> =
+            self.iter().map(|&v| (med - v).abs()).collect();
         // This constant is derived by smarter statistics brains than me, but it is
         // consistent with how R and other packages treat the MAD.
         let number = 1.4826;
@@ -322,8 +323,8 @@ mod tests {
     use crate::stats::Stats;
     use crate::stats::Summary;
     use std::f64;
-    use std::io::prelude::*;
     use std::io;
+    use std::io::prelude::*;
 
     macro_rules! assert_approx_eq {
         ($a: expr, $b: expr) => {{

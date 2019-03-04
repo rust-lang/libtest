@@ -59,7 +59,11 @@ impl<T: Write> PrettyFormatter<T> {
         self.write_plain("\n")
     }
 
-    pub fn write_pretty(&mut self, word: &str, color: term::color::Color) -> io::Result<()> {
+    pub fn write_pretty(
+        &mut self,
+        word: &str,
+        color: term::color::Color,
+    ) -> io::Result<()> {
         match self.out {
             Pretty(ref mut term) => {
                 if self.use_color {
@@ -84,7 +88,10 @@ impl<T: Write> PrettyFormatter<T> {
         self.out.flush()
     }
 
-    pub fn write_successes(&mut self, state: &ConsoleTestState) -> io::Result<()> {
+    pub fn write_successes(
+        &mut self,
+        state: &ConsoleTestState,
+    ) -> io::Result<()> {
         self.write_plain("\nsuccesses:\n")?;
         let mut successes = Vec::new();
         let mut stdouts = String::new();
@@ -110,7 +117,10 @@ impl<T: Write> PrettyFormatter<T> {
         Ok(())
     }
 
-    pub fn write_failures(&mut self, state: &ConsoleTestState) -> io::Result<()> {
+    pub fn write_failures(
+        &mut self,
+        state: &ConsoleTestState,
+    ) -> io::Result<()> {
         self.write_plain("\nfailures:\n")?;
         let mut failures = Vec::new();
         let mut fail_out = String::new();
@@ -162,7 +172,12 @@ impl<T: Write> OutputFormatter for PrettyFormatter<T> {
         Ok(())
     }
 
-    fn write_result(&mut self, desc: &TestDesc, result: &TestResult, _: &[u8]) -> io::Result<()> {
+    fn write_result(
+        &mut self,
+        desc: &TestDesc,
+        result: &TestResult,
+        _: &[u8],
+    ) -> io::Result<()> {
         if self.is_multithreaded {
             self.write_test_name(desc)?;
         }
@@ -190,7 +205,10 @@ impl<T: Write> OutputFormatter for PrettyFormatter<T> {
         ))
     }
 
-    fn write_run_finish(&mut self, state: &ConsoleTestState) -> io::Result<bool> {
+    fn write_run_finish(
+        &mut self,
+        state: &ConsoleTestState,
+    ) -> io::Result<bool> {
         if state.options.display_output {
             self.write_successes(state)?;
         }
