@@ -1,0 +1,15 @@
+trigger:
+  - master
+
+jobs:
+- template: ci/azure-job-test-all.yml
+  parameters:
+    vmImage: vs2017-win2016
+    name: x86_64_msvc
+    target: x86_64-pc-windows-msvc
+- template: ci/azure-job-test-all.yml
+  parameters:
+    vmImage: vs2017-win2016
+    toolchain: nightly-x86_64-gnu
+    name: x86_64_mingw
+    target: x86_64-pc-windows-gnu
