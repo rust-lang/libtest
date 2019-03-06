@@ -8,9 +8,8 @@ Testing](https://doc.rust-lang.org/book/ch11-00-testing.html).
 
 ## Platform support
 
-The following table describes the supported platforms: "build" shows whether the
-library compiles without issues for a given target, while "run" shows whether
-the full testsuite passes on the target.
+* "build" shows whether the library compiles
+* "run" shows whether the full test-suite passes
 
 | Target                            | Build | Run |
 |-----------------------------------|-------|-----|
