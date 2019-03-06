@@ -4,5 +4,15 @@ set -ex
 
 : "${TARGET?The TARGET environment variable must be set.}"
 
-cargo test -vv --all --target="${TARGET}"
-cargo test -vv --all --target="${TARGET}" --release
+CARGO="cargo"
+if [ "${CROSS}" = "1" ]; then
+    CARGO=cross
+fi
+
+CMD="test"
+if [ "${NORUN}" = "1" ]; then
+    CMD=build
+fi
+
+"${CARGO}" "${CMD}" -vv --all --target="${TARGET}"
+"${CARGO}" "${CMD}" -vv --all --target="${TARGET}" --release
