@@ -8,21 +8,96 @@ matrix:
     - name: "Tools"
       install: true
       script: sh ci/tools.sh
-    - name: "x86_64-unknown-linux-gnu"
-      env: TARGET=x86_64-unknown-linux-gnu
-    - name: "i686-unknown-linux-gnu"
-      env: TARGET=i686-unknown-linux-gnu
+
+    # cross targets:
+    - name: "aarch64-linux-android"
+      env: TARGET=aarch64-linux-android CROSS=1
+    - name: "aarch64-unknown-linux-gnu"
+      env: TARGET=aarch64-unknown-linux-gnu CROSS=1
+    - name: "arm-linux-androideabi"
+      env: TARGET=arm-linux-androideabi CROSS=1
+    - name: "arm-unknown-linux-gnueabi"
+      env: TARGET=arm-unknown-linux-gnueabi CROSS=1
+    - name: "arm-unknown-linux-musleabi"
+      env: TARGET=arm-unknown-linux-musleabi CROSS=1
+    - name: "armv7-linux-androideabi"
+      env: TARGET=armv7-linux-androideabi CROSS=1
+    - name: "armv7-unknown-linux-gnueabihf"
+      env: TARGET=armv7-unknown-linux-gnueabihf CROSS=1
+    - name: "armv7-unknown-linux-musleabihf"
+      env: TARGET=armv7-unknown-linux-musleabihf CROSS=1
+    - name: "i586-unknown-linux-gnu"
+      env: TARGET=i586-unknown-linux-gnu CROSS=1
+      addons: &gcc_multilib
+        apt:
+          packages:
+            - gcc-multilib
+    - name: "i586-unknown-linux-musl"
+      env: TARGET=i586-unknown-linux-musl CROSS=1
+      addons: &gcc_multilib
+        apt:
+          packages:
+            - gcc-multilib
+
     - name: "i686-apple-darwin"
       env: TARGET=i686-apple-darwin
       os: osx
       osx_image: xcode10
+    - name: "i686-linux-android" 
+      env: TARGET=i686-linux-android CROSS=1
+    - name: "i686-pc-windows-gnu" 
+      env: TARGET=i686-pc-windows-gnu CROSS=1
+    - name: "i686-unknown-freebsd" 
+      env: TARGET=i686-unknown-freebsd NORUN=1 CROSS=1
+    - name: "i686-unknown-linux-gnu"
+      env: TARGET=i686-unknown-linux-gnu CROSS=1
+      addons: *gcc_multilib
+    - name: "i686-unknown-linux-musl"
+      env: TARGET=i686-unknown-linux-musl CROSS=1
+    - name: "mips-unknown-linux-gnu"
+      env: TARGET=mips-unknown-linux-gnu CROSS=1
+    - name: "mips64-unknown-linux-gnuabi64"
+      env: TARGET=mips64-unknown-linux-gnuabi64 CROSS=1
+    - name: "mips64el-unknown-linux-gnuabi64"
+      env: TARGET=mips64el-unknown-linux-gnuabi64 CROSS=1
+    - name: "mipsel-unknown-linux-gnu"
+      env: TARGET=mipsel-unknown-linux-gnu CROSS=1
+    - name: "powerpc-unknown-linux-gnu"
+      env: TARGET=powerpc-unknown-linux-gnu CROSS=1
+    - name: "powerpc64-unknown-linux-gnu"
+      env: TARGET=powerpc64-unknown-linux-gnu CROSS=1
+    - name: "powerpc64le-unknown-linux-gnu"
+      env: TARGET=powerpc64le-unknown-linux-gnu CROSS=1
+    - name: "s390x-unknown-linux-gnu"
+      env: TARGET=s390x-unknown-linux-gnu CROSS=1 NORUN=1
+    - name: "sparc64-unknown-linux-gnu"
+      env: TARGET=sparc64-unknown-linux-gnu CROSS=1 NORUN=1
     - name: "x86_64-apple-darwin"
       env: TARGET=x86_64-apple-darwin
       os: osx
       osx_image: xcode10
       install: true
+    - name: "x86_64-linux-android"
+      env: TARGET=x86_64-linux-android CROSS=1
+    - name: "x86_64-sun-solaris"
+      env: TARGET=x86_64-sun-solaris NORUN=1 CROSS=1
+    - name: "x86_64-unknown-freebsd"
+      env: TARGET=x86_64-unknown-freebsd NORUN=1 CROSS=1
+    - name: "x86_64-unknown-linux-gnu"
+      env: TARGET=x86_64-unknown-linux-gnu
+      install: true
+    - name: "x86_64-unknown-linux-musl"
+      env: TARGET=x86_64-unknown-linux-musl CROSS=1
+    - name: "x86_64-unknown-netbsd"
+      env: TARGET=x86_64-unknown-netbsd NORUN=1 CROSS=1
 
-install: travis_retry rustup target add $TARGET
+install:
+  - travis_retry rustup target add $TARGET
+  - |
+    if [ "$CROSS" = "1" ]; then
+        cargo install cross
+    fi
+
 script:
   - cargo generate-lockfile
   - sh ci/run.sh "${TARGET}"
