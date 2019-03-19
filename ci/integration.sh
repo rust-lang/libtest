@@ -3,9 +3,12 @@
 set -ex
 
 # compile-test
-git clone git@github.com:laumann/compiletest-rs.git
+rm -r compiletest-rs || true
+git clone git@github.com:gnzlbg/compiletest-rs.git
 (
     cd compiletest-rs
-    sed -i '' 's@libtest = "0.0.1"@libtest = { path = ".." }@g' Cargo.toml
+    git checkout libtest
+    sed -i '' 's@libtest = { git = "https://github.com/gnzlbg/libtest", branch = "clippy_ci" }@libtest = { path = "../libtest" }@g' Cargo.toml
+    echo "[workspace]" >> Cargo.toml
     cargo build
 )

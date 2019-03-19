@@ -48,6 +48,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+use termcolor::ColorChoice;
 
 const TEST_WARN_TIMEOUT_S: u64 = 60;
 const QUIET_MODE_MAX_COLUMN: usize = 100; // insert a '\n' after 100 tests in quiet mode
@@ -315,13 +316,6 @@ pub fn assert_test_result<T: Termination>(result: T) {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum ColorConfig {
-    AutoColor,
-    AlwaysColor,
-    NeverColor,
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum OutputFormat {
     Pretty,
@@ -347,7 +341,7 @@ pub struct TestOpts {
     pub bench_benchmarks: bool,
     pub logfile: Option<PathBuf>,
     pub nocapture: bool,
-    pub color: ColorConfig,
+    pub color: ColorChoice,
     pub format: OutputFormat,
     pub test_threads: Option<usize>,
     pub skip: Vec<String>,
@@ -367,7 +361,7 @@ impl TestOpts {
             bench_benchmarks: false,
             logfile: None,
             nocapture: false,
-            color: ColorConfig::AutoColor,
+            color: ColorChoice::Auto,
             format: OutputFormat::Pretty,
             test_threads: None,
             skip: vec![],
@@ -597,9 +591,9 @@ pub fn parse_opts(args: &[String]) -> Option<OptRes> {
     };
 
     let color = match matches.opt_str("color").as_ref().map(|s| &**s) {
-        Some("auto") | None => ColorConfig::AutoColor,
-        Some("always") => ColorConfig::AlwaysColor,
-        Some("never") => ColorConfig::NeverColor,
+        Some("auto") | None => ColorChoice::Auto,
+        Some("always") => ColorChoice::Always,
+        Some("never") => ColorChoice::Never,
 
         Some(v) => {
             return Some(Err(format!(
@@ -671,7 +665,7 @@ pub enum TestResult {
 unsafe impl Send for TestResult {}
 
 enum OutputLocation<T> {
-    Pretty(Box<term::StdoutTerminal>),
+    Pretty(termcolor::StandardStream),
     Raw(T),
 }
 
@@ -823,10 +817,8 @@ pub fn list_tests_console(
         }
     }
 
-    let mut output = match term::stdout() {
-        None => OutputLocation::Raw(io::stdout()),
-        Some(t) => OutputLocation::Pretty(t),
-    };
+    let mut output: OutputLocation<Vec<u8>>
+        = OutputLocation::Pretty(termcolor::StandardStream::stdout(opts.color));
 
     let quiet = opts.format == OutputFormat::Terse;
     let mut st = ConsoleTestState::new(opts)?;
@@ -935,11 +927,8 @@ pub fn run_tests_console(
         }
     }
 
-    let output = match term::stdout() {
-        None => OutputLocation::Raw(io::stdout()),
-        Some(t) => OutputLocation::Pretty(t),
-    };
-
+    let output: OutputLocation<Vec<u8>>
+        = OutputLocation::Pretty(termcolor::StandardStream::stdout(opts.color));
     let max_name_len = tests
         .iter()
         .max_by_key(|t| len_if_padded(*t))
@@ -1023,9 +1012,9 @@ fn should_sort_failures_before_printing_them() {
 
 fn use_color(opts: &TestOpts) -> bool {
     match opts.color {
-        ColorConfig::AutoColor => !opts.nocapture && stdout_isatty(),
-        ColorConfig::AlwaysColor => true,
-        ColorConfig::NeverColor => false,
+        ColorChoice::Auto => !opts.nocapture && stdout_isatty(),
+        ColorChoice::Always | ColorChoice::AlwaysAnsi => true,
+        ColorChoice::Never => false,
     }
 }
 

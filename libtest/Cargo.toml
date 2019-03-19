@@ -17,4 +17,8 @@ crate-type = ["dylib", "rlib"]
 
 [dependencies]
 getopts = "0.2"
-term = "0.5"
+termcolor = "1.0"
+
+[features]
+default = []
+unstable = []
