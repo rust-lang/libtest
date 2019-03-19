@@ -8,6 +8,9 @@ matrix:
     - name: "Tools"
       install: true
       script: sh ci/tools.sh
+    - name: "Integration"
+      install: true
+      script: sh ci/integration.sh
 
     # cross targets:
     - name: "aarch64-linux-android"
