@@ -26,12 +26,17 @@ impl<T: Write> JsonFormatter<T> {
         if let Some(extras) = extra {
             self.write_message(&*format!(
                 r#"{{ "type": "{}", "name": "{}", "event": "{}", {} }}"#,
-                ty, name, evt, extras
+                ty,
+                EscapedString(name),
+                evt,
+                extras
             ))
         } else {
             self.write_message(&*format!(
                 r#"{{ "type": "{}", "name": "{}", "event": "{}" }}"#,
-                ty, name, evt
+                ty,
+                EscapedString(name),
+                evt
             ))
         }
     }
@@ -48,7 +53,7 @@ impl<T: Write> OutputFormatter for JsonFormatter<T> {
     fn write_test_start(&mut self, desc: &TestDesc) -> io::Result<()> {
         self.write_message(&*format!(
             r#"{{ "type": "test", "event": "started", "name": "{}" }}"#,
-            desc.name
+            EscapedString(desc.name.as_slice())
         ))
     }
 
