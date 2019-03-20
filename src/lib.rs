@@ -11,8 +11,6 @@
     clippy::cast_precision_loss
 )]
 
-use getopts;
-
 #[cfg(feature = "unstable")]
 extern crate test;
 

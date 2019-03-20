@@ -5,15 +5,10 @@ version = "0.0.2"
 edition = "2018"
 description = "Rust's built in unit-test and micro-benchmarking framework"
 license = "MIT/Apache-2.0"
-documentation = "https://docs.rs/libterm"
+documentation = "https://docs.rs/libtest"
 homepage = "https://github.com/rust-lang/libtest"
 repository = "https://github.com/rust-lang/libtest"
 readme = "README.md"
-
-[lib]
-name = "libtest"
-path = "src/lib.rs"
-crate-type = ["dylib", "rlib"]
 
 [dependencies]
 getopts = "0.2"
