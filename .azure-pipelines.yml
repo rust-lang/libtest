@@ -2,37 +2,37 @@ trigger:
   - master
 
 jobs:
-- template: ci/azure-job-test-all.yml
+- template: ci/azure-job-test-nightly.yml
   parameters:
     vmImage: vs2017-win2016
     name: x86_64_msvc_nightly
     target: x86_64-pc-windows-msvc
     toolchain: nightly-x86_64-msvc
-- template: ci/azure-job-test-all.yml
+- template: ci/azure-job-test-stable.yml
   parameters:
     vmImage: vs2017-win2016
     name: x86_64_msvc_beta
     target: x86_64-pc-windows-msvc
     toolchain: beta-x86_64-msvc
-- template: ci/azure-job-test-all.yml
+- template: ci/azure-job-test-stable.yml
   parameters:
     vmImage: vs2017-win2016
     name: x86_64_msvc_stable
     target: x86_64-pc-windows-msvc
     toolchain: stable-x86_64-msvc
-- template: ci/azure-job-test-all.yml
+- template: ci/azure-job-test-nightly.yml
   parameters:
     vmImage: vs2017-win2016
     toolchain: nightly-x86_64-gnu
     name: x86_64_mingw_nightly
     target: x86_64-pc-windows-gnu
-- template: ci/azure-job-test-all.yml
+- template: ci/azure-job-test-stable.yml
   parameters:
     vmImage: vs2017-win2016
     toolchain: beta-x86_64-gnu
     name: x86_64_mingw_beta
     target: x86_64-pc-windows-gnu
-- template: ci/azure-job-test-all.yml
+- template: ci/azure-job-test-stable.yml
   parameters:
     vmImage: vs2017-win2016
     toolchain: stable-x86_64-gnu
