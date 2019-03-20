@@ -16,3 +16,6 @@ fi
 
 "${CARGO}" "${CMD}" -vv --all --target="${TARGET}"
 "${CARGO}" "${CMD}" -vv --all --target="${TARGET}" --release
+
+"${CARGO}" "${CMD}" -vv --all --target="${TARGET}" --features=unstable
+"${CARGO}" "${CMD}" -vv --all --target="${TARGET}" --features=unstable --release

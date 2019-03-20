@@ -1,10 +1,23 @@
 //! Rust's built-in unit-test and micro-benchmarking framework.
-#![cfg_attr(any(unix, target_os = "cloudabi"), feature(libc, rustc_private))]
-#![feature(fnbox)]
-#![feature(set_stdio)]
-#![feature(panic_unwind)]
-#![feature(termination_trait_lib)]
-#![feature(test)]
+#![cfg_attr(
+    all(
+        feature = "unstable",
+        any(unix, target_os = "cloudabi")
+    ),
+    feature(
+        rustc_private
+    )
+)]
+#![cfg_attr(
+    feature = "unstable",
+    feature(
+        fnbox,
+        set_stdio,
+        panic_unwind,
+        termination_trait_lib,
+        test,
+    )
+)]
 #![deny(rust_2018_idioms)]
 #![allow(
     clippy::pub_enum_variant_names,
@@ -15,6 +28,7 @@
 
 use getopts;
 
+#[cfg(feature = "unstable")]
 extern crate test;
 
 #[cfg(any(unix, target_os = "cloudabi"))]
@@ -26,13 +40,12 @@ extern crate libc;
 //                libtest won't be fully functional on this platform.
 //
 // See also: https://github.com/rust-lang/rust/issues/54190#issuecomment-422904437
-#[cfg(not(all(windows, target_arch = "aarch64")))]
+#[cfg(all(features = "unstable", not(all(windows, target_arch = "aarch64"))))]
 extern crate panic_unwind;
 
 use std::{
     any::Any,
     borrow::Cow,
-    boxed::FnBox,
     cmp,
     collections::BTreeMap,
     env, fmt,
@@ -40,7 +53,7 @@ use std::{
     io::{self, prelude::*},
     panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
-    process::{self, Termination},
+    process::{self},
     sync::{
         mpsc::{channel, Sender},
         Arc, Mutex,
@@ -48,13 +61,43 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+
+#[cfg(feature = "unstable")]
+use std::{
+    process::Termination,
+    boxed::FnBox,
+};
 use termcolor::ColorChoice;
+
+#[cfg(feature = "unstable")]
+type FnOnceBoxed = Box<dyn FnBox() + Send>;
+
+#[cfg(not(feature = "unstable"))]
+type FnOnceBoxed = Box<dyn FnOnce() + Send>;
 
 const TEST_WARN_TIMEOUT_S: u64 = 60;
 const QUIET_MODE_MAX_COLUMN: usize = 100; // insert a '\n' after 100 tests in quiet mode
 
 mod formatters;
 pub mod stats;
+
+fn set_print(sink: Option<Box<dyn Write + Send>>) -> Option<Box<dyn Write + Send>> {
+    #[cfg(feature = "unstable")] {
+        io::set_print(sink)
+    }
+    #[cfg(not(feature = "unstable"))] {
+        sink
+    }
+}
+
+fn set_panic(sink: Option<Box<dyn Write + Send>>) -> Option<Box<dyn Write + Send>> {
+    #[cfg(feature = "unstable")] {
+        io::set_panic(sink)
+    }
+    #[cfg(not(feature = "unstable"))] {
+        sink
+    }
+}
 
 use crate::formatters::{
     JsonFormatter, OutputFormatter, PrettyFormatter, TerseFormatter,
@@ -143,9 +186,10 @@ pub trait TDynBenchFn: Send {
 pub enum TestFn {
     StaticTestFn(fn()),
     StaticBenchFn(fn(&mut Bencher)),
-    DynTestFn(Box<dyn FnBox() + Send>),
+    DynTestFn(FnOnceBoxed),
     DynBenchFn(Box<dyn TDynBenchFn + 'static>),
 }
+
 
 impl TestFn {
     fn padding(&self) -> NamePadding {
@@ -304,6 +348,7 @@ pub fn test_main_static(tests: &[&TestDescAndFn]) {
 /// Invoked when unit tests terminate. Should panic if the unit
 /// Tests is considered a failure. By default, invokes `report()`
 /// and checks for a `0` result.
+#[cfg(feature = "unstable")]
 pub fn assert_test_result<T: Termination>(result: T) {
     let code = result.report();
     if code != 0 {
@@ -1460,7 +1505,7 @@ pub fn run_test(
         desc: TestDesc,
         monitor_ch: Sender<MonitorMsg>,
         nocapture: bool,
-        testfn: Box<dyn FnBox() + Send>,
+        testfn: FnOnceBoxed,
         concurrency: Concurrent,
     ) {
         // Buffer for capturing standard I/O
@@ -1473,16 +1518,23 @@ pub fn run_test(
                 None
             } else {
                 Some((
-                    io::set_print(Some(Box::new(Sink(data2.clone())))),
-                    io::set_panic(Some(Box::new(Sink(data2)))),
+                    crate::set_print(Some(Box::new(Sink(data2.clone())))),
+                    crate::set_panic(Some(Box::new(Sink(data2)))),
                 ))
             };
 
-            let result = catch_unwind(AssertUnwindSafe(testfn));
+            let result = {
+                #[cfg(feature = "unstable")] {
+                    catch_unwind(AssertUnwindSafe(move || testfn()))
+                }
+                #[cfg(not(feature = "unstable"))] {
+                    catch_unwind(|| testfn())
+                }
+            };
 
             if let Some((printio, panicio)) = oldio {
-                io::set_print(printio);
-                io::set_panic(panicio);
+                crate::set_print(printio);
+                crate::set_panic(panicio);
             };
 
             let test_result = calc_result(&desc, result);
@@ -1536,20 +1588,32 @@ pub fn run_test(
             );
         }
         TestFn::DynTestFn(f) => {
-            let cb = move || __rust_begin_short_backtrace(f);
-            run_test_inner(
-                desc,
-                monitor_ch,
-                opts.nocapture,
-                Box::new(cb),
-                concurrency,
-            )
+            #[cfg(feature = "unstable")] {
+                let cb = move || __rust_begin_short_backtrace(move || f());
+
+                run_test_inner(
+                    desc,
+                    monitor_ch,
+                    opts.nocapture,
+                    Box::new(cb),
+                    concurrency,
+                )
+            }
+            #[cfg(not(feature = "unstable"))] {
+                run_test_inner(
+                    desc,
+                    monitor_ch,
+                    opts.nocapture,
+                    f,
+                    concurrency,
+                )
+            }
         }
         TestFn::StaticTestFn(f) => run_test_inner(
             desc,
             monitor_ch,
             opts.nocapture,
-            Box::new(move || __rust_begin_short_backtrace(f)),
+            Box::new(move || __rust_begin_short_backtrace(move || f())),
             concurrency,
         ),
     }
@@ -1656,13 +1720,22 @@ fn ns_from_dur(dur: Duration) -> u64 {
     dur.as_secs() * 1_000_000_000 + u64::from(dur.subsec_nanos())
 }
 
+fn black_box<T>(x: T) -> T {
+    #[cfg(feature = "unstable")] {
+        test::black_box(x)
+    }
+    #[cfg(not(feature = "unstable"))] {
+        unsafe { std::ptr::read_volatile(&x as *const T) }
+    }
+}
+
 fn ns_iter_inner<T, F>(inner: &mut F, k: u64) -> u64
 where
     F: FnMut() -> T,
 {
     let start = Instant::now();
     for _ in 0..k {
-        test::black_box(inner());
+        black_box(inner());
     }
     ns_from_dur(start.elapsed())
 }
@@ -1738,13 +1811,13 @@ where
 pub mod bench {
     use super::{
         BenchMode, BenchSamples, Bencher, MonitorMsg, Sender, Sink, TestDesc,
-        TestResult,
+        TestResult, stats,
     };
-    use crate::stats;
-    use std::cmp;
-    use std::io;
-    use std::panic::{catch_unwind, AssertUnwindSafe};
-    use std::sync::{Arc, Mutex};
+    use std::{
+        cmp,
+        panic::{catch_unwind, AssertUnwindSafe},
+        sync::{Arc, Mutex}
+    };
 
     pub fn benchmark<F>(
         desc: TestDesc,
@@ -1767,16 +1840,16 @@ pub mod bench {
             None
         } else {
             Some((
-                io::set_print(Some(Box::new(Sink(data2.clone())))),
-                io::set_panic(Some(Box::new(Sink(data2)))),
+                crate::set_print(Some(Box::new(Sink(data2.clone())))),
+                crate::set_panic(Some(Box::new(Sink(data2)))),
             ))
         };
 
         let result = catch_unwind(AssertUnwindSafe(|| bs.bench(f)));
 
         if let Some((printio, panicio)) = oldio {
-            io::set_print(printio);
-            io::set_panic(panicio);
+            crate::set_print(printio);
+            crate::set_panic(panicio);
         };
 
         let test_result = match result {
