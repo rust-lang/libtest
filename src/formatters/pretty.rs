@@ -69,7 +69,9 @@ impl<T: Write> PrettyFormatter<T> {
         match self.out {
             OutputLocation::Pretty(ref mut term) => {
                 if self.use_color {
-                    term.set_color(termcolor::ColorSpec::new().set_fg(Some(color)))?;
+                    term.set_color(
+                        termcolor::ColorSpec::new().set_fg(Some(color)),
+                    )?;
                 }
                 term.write_all(word.as_bytes())?;
                 if self.use_color {

@@ -1,22 +1,7 @@
 //! Rust's built-in unit-test and micro-benchmarking framework.
 #![cfg_attr(
-    all(
-        feature = "unstable",
-        any(unix, target_os = "cloudabi")
-    ),
-    feature(
-        rustc_private
-    )
-)]
-#![cfg_attr(
     feature = "unstable",
-    feature(
-        fnbox,
-        set_stdio,
-        panic_unwind,
-        termination_trait_lib,
-        test,
-    )
+    feature(set_stdio, panic_unwind, termination_trait_lib, test,)
 )]
 #![deny(rust_2018_idioms)]
 #![allow(
@@ -53,7 +38,7 @@ use std::{
     io::{self, prelude::*},
     panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
-    process::{self},
+    process,
     sync::{
         mpsc::{channel, Sender},
         Arc, Mutex,
@@ -63,17 +48,8 @@ use std::{
 };
 
 #[cfg(feature = "unstable")]
-use std::{
-    process::Termination,
-    boxed::FnBox,
-};
+use std::process::Termination;
 use termcolor::ColorChoice;
-
-#[cfg(feature = "unstable")]
-type FnOnceBoxed = Box<dyn FnBox() + Send>;
-
-#[cfg(not(feature = "unstable"))]
-type FnOnceBoxed = Box<dyn FnOnce() + Send>;
 
 const TEST_WARN_TIMEOUT_S: u64 = 60;
 const QUIET_MODE_MAX_COLUMN: usize = 100; // insert a '\n' after 100 tests in quiet mode
@@ -81,20 +57,28 @@ const QUIET_MODE_MAX_COLUMN: usize = 100; // insert a '\n' after 100 tests in qu
 mod formatters;
 pub mod stats;
 
-fn set_print(sink: Option<Box<dyn Write + Send>>) -> Option<Box<dyn Write + Send>> {
-    #[cfg(feature = "unstable")] {
+fn set_print(
+    sink: Option<Box<dyn Write + Send>>,
+) -> Option<Box<dyn Write + Send>> {
+    #[cfg(feature = "unstable")]
+    {
         io::set_print(sink)
     }
-    #[cfg(not(feature = "unstable"))] {
+    #[cfg(not(feature = "unstable"))]
+    {
         sink
     }
 }
 
-fn set_panic(sink: Option<Box<dyn Write + Send>>) -> Option<Box<dyn Write + Send>> {
-    #[cfg(feature = "unstable")] {
+fn set_panic(
+    sink: Option<Box<dyn Write + Send>>,
+) -> Option<Box<dyn Write + Send>> {
+    #[cfg(feature = "unstable")]
+    {
         io::set_panic(sink)
     }
-    #[cfg(not(feature = "unstable"))] {
+    #[cfg(not(feature = "unstable"))]
+    {
         sink
     }
 }
@@ -186,10 +170,9 @@ pub trait TDynBenchFn: Send {
 pub enum TestFn {
     StaticTestFn(fn()),
     StaticBenchFn(fn(&mut Bencher)),
-    DynTestFn(FnOnceBoxed),
+    DynTestFn(Box<dyn FnMut() + Send>),
     DynBenchFn(Box<dyn TDynBenchFn + 'static>),
 }
-
 
 impl TestFn {
     fn padding(&self) -> NamePadding {
@@ -711,7 +694,8 @@ unsafe impl Send for TestResult {}
 
 enum OutputLocation<T> {
     Pretty(termcolor::StandardStream),
-    Raw(T),
+    #[allow(dead_code)]
+    Raw(T), // used in tests
 }
 
 impl<T: Write> Write for OutputLocation<T> {
@@ -862,8 +846,8 @@ pub fn list_tests_console(
         }
     }
 
-    let mut output: OutputLocation<Vec<u8>>
-        = OutputLocation::Pretty(termcolor::StandardStream::stdout(opts.color));
+    let mut output: OutputLocation<Vec<u8>> =
+        OutputLocation::Pretty(termcolor::StandardStream::stdout(opts.color));
 
     let quiet = opts.format == OutputFormat::Terse;
     let mut st = ConsoleTestState::new(opts)?;
@@ -972,8 +956,8 @@ pub fn run_tests_console(
         }
     }
 
-    let output: OutputLocation<Vec<u8>>
-        = OutputLocation::Pretty(termcolor::StandardStream::stdout(opts.color));
+    let output: OutputLocation<Vec<u8>> =
+        OutputLocation::Pretty(termcolor::StandardStream::stdout(opts.color));
     let max_name_len = tests
         .iter()
         .max_by_key(|t| len_if_padded(*t))
@@ -1494,6 +1478,7 @@ pub fn convert_benchmarks_to_tests(
         .collect()
 }
 
+#[allow(clippy::redundant_closure)]
 pub fn run_test(
     opts: &TestOpts,
     force_ignore: bool,
@@ -1505,7 +1490,7 @@ pub fn run_test(
         desc: TestDesc,
         monitor_ch: Sender<MonitorMsg>,
         nocapture: bool,
-        testfn: FnOnceBoxed,
+        mut testfn: Box<dyn FnMut() + Send>,
         concurrency: Concurrent,
     ) {
         // Buffer for capturing standard I/O
@@ -1523,14 +1508,7 @@ pub fn run_test(
                 ))
             };
 
-            let result = {
-                #[cfg(feature = "unstable")] {
-                    catch_unwind(AssertUnwindSafe(move || testfn()))
-                }
-                #[cfg(not(feature = "unstable"))] {
-                    catch_unwind(|| testfn())
-                }
-            };
+            let result = catch_unwind(AssertUnwindSafe(move || testfn()));
 
             if let Some((printio, panicio)) = oldio {
                 crate::set_print(printio);
@@ -1587,33 +1565,21 @@ pub fn run_test(
                 |harness| (benchfn)(harness),
             );
         }
-        TestFn::DynTestFn(f) => {
-            #[cfg(feature = "unstable")] {
-                let cb = move || __rust_begin_short_backtrace(move || f());
-
-                run_test_inner(
-                    desc,
-                    monitor_ch,
-                    opts.nocapture,
-                    Box::new(cb),
-                    concurrency,
-                )
-            }
-            #[cfg(not(feature = "unstable"))] {
-                run_test_inner(
-                    desc,
-                    monitor_ch,
-                    opts.nocapture,
-                    f,
-                    concurrency,
-                )
-            }
+        TestFn::DynTestFn(mut f) => {
+            let cb = move || __rust_begin_short_backtrace(|| f());
+            run_test_inner(
+                desc,
+                monitor_ch,
+                opts.nocapture,
+                Box::new(cb),
+                concurrency,
+            )
         }
         TestFn::StaticTestFn(f) => run_test_inner(
             desc,
             monitor_ch,
             opts.nocapture,
-            Box::new(move || __rust_begin_short_backtrace(move || f())),
+            Box::new(move || __rust_begin_short_backtrace(f)),
             concurrency,
         ),
     }
@@ -1621,7 +1587,7 @@ pub fn run_test(
 
 /// Fixed frame used to clean the backtrace with `RUST_BACKTRACE=1`.
 #[inline(never)]
-fn __rust_begin_short_backtrace<F: FnOnce()>(f: F) {
+fn __rust_begin_short_backtrace<F: FnMut()>(mut f: F) {
     f()
 }
 
@@ -1720,11 +1686,15 @@ fn ns_from_dur(dur: Duration) -> u64 {
     dur.as_secs() * 1_000_000_000 + u64::from(dur.subsec_nanos())
 }
 
+#[inline(never)]
+#[allow(clippy::needless_pass_by_value)]
 fn black_box<T>(x: T) -> T {
-    #[cfg(feature = "unstable")] {
+    #[cfg(feature = "unstable")]
+    {
         test::black_box(x)
     }
-    #[cfg(not(feature = "unstable"))] {
+    #[cfg(not(feature = "unstable"))]
+    {
         unsafe { std::ptr::read_volatile(&x as *const T) }
     }
 }
@@ -1810,13 +1780,13 @@ where
 
 pub mod bench {
     use super::{
-        BenchMode, BenchSamples, Bencher, MonitorMsg, Sender, Sink, TestDesc,
-        TestResult, stats,
+        stats, BenchMode, BenchSamples, Bencher, MonitorMsg, Sender, Sink,
+        TestDesc, TestResult,
     };
     use std::{
         cmp,
         panic::{catch_unwind, AssertUnwindSafe},
-        sync::{Arc, Mutex}
+        sync::{Arc, Mutex},
     };
 
     pub fn benchmark<F>(
