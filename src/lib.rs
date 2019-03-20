@@ -49,7 +49,7 @@ use std::{
 
 #[cfg(feature = "unstable")]
 use std::process::Termination;
-use termcolor::ColorChoice;
+pub use termcolor::ColorChoice;
 
 const TEST_WARN_TIMEOUT_S: u64 = 60;
 const QUIET_MODE_MAX_COLUMN: usize = 100; // insert a '\n' after 100 tests in quiet mode
