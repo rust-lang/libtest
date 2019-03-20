@@ -130,6 +130,10 @@ matrix:
     - name: "x86_64-unknown-netbsd"
       env: TARGET=x86_64-unknown-netbsd NORUN=1 CROSS=1
 
+  allow_failures:
+    # FIXME: the compiletest-rs crate needs to be updated to libtest 0.0.2
+    - name: "Integration"
+
 install:
   - travis_retry rustup target add $TARGET
   - |
