@@ -4,7 +4,7 @@ set -ex
 
 # compile-test
 rm -r compiletest-rs || true
-git clone git@github.com:laumann/compiletest-rs.git
+git clone https://github.com/laumann/compiletest-rs
 (
     cd compiletest-rs
     sed -i '' 's@libtest = "0.0.2"@libtest = { path = "..", features = [ "unstable" ] }@g' Cargo.toml
