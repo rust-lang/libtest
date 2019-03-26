@@ -11,9 +11,6 @@
     clippy::cast_precision_loss
 )]
 
-#[cfg(all(feature = "unstable", not(stage0)))]
-extern crate test;
-
 #[cfg(any(unix, target_os = "cloudabi"))]
 extern crate libc;
 
@@ -1689,7 +1686,7 @@ fn ns_from_dur(dur: Duration) -> u64 {
 fn black_box<T>(x: T) -> T {
     #[cfg(all(feature = "unstable", not(stage0)))]
     {
-        test::black_box(x)
+        std::hint::black_box(x)
     }
     #[cfg(any(not(feature = "unstable"), stage0))]
     {
