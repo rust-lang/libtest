@@ -1,5 +1,5 @@
 //! Rust's built-in unit-test and micro-benchmarking framework.
-#![cfg_attr(any(unix, target_os = "cloudabi"), feature(libc, rustc_private))]
+#![cfg_attr(any(unix, target_os = "cloudabi", target_os = "fuchsia"), feature(libc, rustc_private))]
 #![feature(fnbox)]
 #![feature(set_stdio)]
 #![feature(panic_unwind)]
@@ -17,7 +17,7 @@ use getopts;
 
 extern crate test;
 
-#[cfg(any(unix, target_os = "cloudabi"))]
+#[cfg(any(unix, target_os = "cloudabi", target_os = "fuchsia"))]
 extern crate libc;
 
 // FIXME(#54291): rustc and/or LLVM don't yet support building with panic-unwind
@@ -1039,7 +1039,7 @@ fn stdout_isatty() -> bool {
     // FIXME: Implement isatty on Redox and SGX
     false
 }
-#[cfg(unix)]
+#[cfg(any(unix, target_os = "fuchsia"))]
 fn stdout_isatty() -> bool {
     unsafe { libc::isatty(libc::STDOUT_FILENO) != 0 }
 }
