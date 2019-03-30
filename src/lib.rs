@@ -1,7 +1,7 @@
 //! Rust's built-in unit-test and micro-benchmarking framework.
 #![cfg_attr(
     feature = "unstable",
-    feature(set_stdio, panic_unwind, termination_trait_lib)
+    feature(set_stdio, panic_unwind, termination_trait_lib, test)
 )]
 #![deny(rust_2018_idioms)]
 #![allow(
