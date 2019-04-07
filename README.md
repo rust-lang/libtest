@@ -6,6 +6,18 @@ libtest - Rust's built-in unit-testing and benchmarking framework
 See [The Rust Programming Language chapter on
 Testing](https://doc.rust-lang.org/book/ch11-00-testing.html).
 
+## Cargo features
+
+* `unstable` (disabled by default): enables nightly features. Currently, this enables:
+   * `feature(set_stdio)`: better output reporting
+   * `feature(panic_unwind)`: explicitly links against the `panic_unwind` crate
+     on platforms that support it, but avoid that on platforms that do not. This
+     allows using `libtest` on platforms like `aarch64-pc-windows-msvc` which do
+     not yet support `panic_unwind`.
+   * `feature(termination_trait_lib)`: exposes the `assert_test_result` API     
+   * `feature(test)`: uses `test::black_box` in benchmarks. On stable Rust, this is
+     worked around with volatile loads and stores which aren't as good.
+
 ## Platform support
 
 * "build" shows whether the library compiles

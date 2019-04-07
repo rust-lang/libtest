@@ -1,4 +1,5 @@
 use super::*;
+use termcolor::Color;
 
 pub(crate) struct TerseFormatter<T> {
     out: OutputLocation<T>,
@@ -29,29 +30,29 @@ impl<T: Write> TerseFormatter<T> {
     }
 
     pub fn write_ok(&mut self) -> io::Result<()> {
-        self.write_short_result(".", term::color::GREEN)
+        self.write_short_result(".", Color::Green)
     }
 
     pub fn write_failed(&mut self) -> io::Result<()> {
-        self.write_short_result("F", term::color::RED)
+        self.write_short_result("F", Color::Red)
     }
 
     pub fn write_ignored(&mut self) -> io::Result<()> {
-        self.write_short_result("i", term::color::YELLOW)
+        self.write_short_result("i", Color::Yellow)
     }
 
     pub fn write_allowed_fail(&mut self) -> io::Result<()> {
-        self.write_short_result("a", term::color::YELLOW)
+        self.write_short_result("a", Color::Yellow)
     }
 
     pub fn write_bench(&mut self) -> io::Result<()> {
-        self.write_pretty("bench", term::color::CYAN)
+        self.write_pretty("bench", Color::Cyan)
     }
 
     pub fn write_short_result(
         &mut self,
         result: &str,
-        color: term::color::Color,
+        color: Color,
     ) -> io::Result<()> {
         self.write_pretty(result, color)?;
         if self.test_count % QUIET_MODE_MAX_COLUMN == QUIET_MODE_MAX_COLUMN - 1
@@ -74,12 +75,15 @@ impl<T: Write> TerseFormatter<T> {
     pub fn write_pretty(
         &mut self,
         word: &str,
-        color: term::color::Color,
+        color: Color,
     ) -> io::Result<()> {
+        use termcolor::WriteColor;
         match self.out {
             OutputLocation::Pretty(ref mut term) => {
                 if self.use_color {
-                    term.fg(color)?;
+                    term.set_color(
+                        termcolor::ColorSpec::new().set_fg(Some(color)),
+                    )?;
                 }
                 term.write_all(word.as_bytes())?;
                 if self.use_color {
@@ -233,9 +237,9 @@ impl<T: Write> OutputFormatter for TerseFormatter<T> {
 
         if success {
             // There's no parallelism at this point so it's safe to use color
-            self.write_pretty("ok", term::color::GREEN)?;
+            self.write_pretty("ok", Color::Green)?;
         } else {
-            self.write_pretty("FAILED", term::color::RED)?;
+            self.write_pretty("FAILED", Color::Red)?;
         }
 
         let s = if state.allowed_fail > 0 {

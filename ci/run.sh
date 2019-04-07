@@ -16,3 +16,8 @@ fi
 
 "${CARGO}" "${CMD}" -vv --all --target="${TARGET}"
 "${CARGO}" "${CMD}" -vv --all --target="${TARGET}" --release
+
+if [ "${TRAVIS_RUST_VERSION}" = "nightly" ]; then
+    "${CARGO}" "${CMD}" -vv --all --target="${TARGET}" --features=unstable
+    "${CARGO}" "${CMD}" -vv --all --target="${TARGET}" --features=unstable --release
+fi

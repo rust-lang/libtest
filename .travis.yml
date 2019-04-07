@@ -8,8 +8,9 @@ matrix:
     - name: "Tools"
       install: true
       script: sh ci/tools.sh
-
-    # cross targets:
+    - name: "Integration"
+      install: true
+      script: sh ci/integration.sh
     - name: "aarch64-linux-android"
       env: TARGET=aarch64-linux-android CROSS=1
     - name: "aarch64-unknown-linux-gnu"
@@ -39,9 +40,19 @@ matrix:
           packages:
             - gcc-multilib
 
-    - name: "i686-apple-darwin"
+    - name: "i686-apple-darwin (nightly)"
       env: TARGET=i686-apple-darwin
       os: osx
+      osx_image: xcode10
+    - name: "i686-apple-darwin (beta)"
+      env: TARGET=i686-apple-darwin
+      os: osx
+      rust: beta
+      osx_image: xcode10
+    - name: "i686-apple-darwin (stable)"
+      env: TARGET=i686-apple-darwin
+      os: osx
+      rust: stable
       osx_image: xcode10
     - name: "i686-linux-android" 
       env: TARGET=i686-linux-android CROSS=1
@@ -49,9 +60,17 @@ matrix:
       env: TARGET=i686-pc-windows-gnu CROSS=1
     - name: "i686-unknown-freebsd" 
       env: TARGET=i686-unknown-freebsd NORUN=1 CROSS=1
-    - name: "i686-unknown-linux-gnu"
+    - name: "i686-unknown-linux-gnu (nightly)"
       env: TARGET=i686-unknown-linux-gnu CROSS=1
       addons: *gcc_multilib
+    - name: "i686-unknown-linux-gnu (beta)"
+      env: TARGET=i686-unknown-linux-gnu CROSS=1
+      addons: *gcc_multilib
+      rust: beta
+    - name: "i686-unknown-linux-gnu (stable)"
+      env: TARGET=i686-unknown-linux-gnu CROSS=1
+      addons: *gcc_multilib
+      rust: stable
     - name: "i686-unknown-linux-musl"
       env: TARGET=i686-unknown-linux-musl CROSS=1
     - name: "mips-unknown-linux-gnu"
@@ -72,24 +91,48 @@ matrix:
       env: TARGET=s390x-unknown-linux-gnu CROSS=1 NORUN=1
     - name: "sparc64-unknown-linux-gnu"
       env: TARGET=sparc64-unknown-linux-gnu CROSS=1 NORUN=1
-    - name: "x86_64-apple-darwin"
+    - name: "x86_64-apple-darwin (nightly)"
       env: TARGET=x86_64-apple-darwin
       os: osx
       osx_image: xcode10
       install: true
+    - name: "x86_64-apple-darwin (beta)"
+      env: TARGET=x86_64-apple-darwin
+      os: osx
+      osx_image: xcode10
+      install: true
+      rust: beta
+    - name: "x86_64-apple-darwin (stable)"
+      env: TARGET=x86_64-apple-darwin
+      os: osx
+      osx_image: xcode10
+      install: true
+      rust: stable
     - name: "x86_64-linux-android"
       env: TARGET=x86_64-linux-android CROSS=1
     - name: "x86_64-sun-solaris"
       env: TARGET=x86_64-sun-solaris NORUN=1 CROSS=1
     - name: "x86_64-unknown-freebsd"
       env: TARGET=x86_64-unknown-freebsd NORUN=1 CROSS=1
-    - name: "x86_64-unknown-linux-gnu"
+    - name: "x86_64-unknown-linux-gnu (nightly)"
       env: TARGET=x86_64-unknown-linux-gnu
       install: true
+    - name: "x86_64-unknown-linux-gnu (beta)"
+      env: TARGET=x86_64-unknown-linux-gnu
+      install: true
+      rust: beta
+    - name: "x86_64-unknown-linux-gnu (stable)"
+      env: TARGET=x86_64-unknown-linux-gnu
+      install: true
+      rust: stable
     - name: "x86_64-unknown-linux-musl"
       env: TARGET=x86_64-unknown-linux-musl CROSS=1
     - name: "x86_64-unknown-netbsd"
       env: TARGET=x86_64-unknown-netbsd NORUN=1 CROSS=1
+
+  allow_failures:
+    # FIXME: the compiletest-rs crate needs to be updated to libtest 0.0.2
+    - name: "Integration"
 
 install:
   - travis_retry rustup target add $TARGET

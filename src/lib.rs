@@ -1,10 +1,8 @@
 //! Rust's built-in unit-test and micro-benchmarking framework.
-#![cfg_attr(any(unix, target_os = "cloudabi"), feature(libc, rustc_private))]
-#![feature(fnbox)]
-#![feature(set_stdio)]
-#![feature(panic_unwind)]
-#![feature(termination_trait_lib)]
-#![feature(test)]
+#![cfg_attr(
+    feature = "unstable",
+    feature(set_stdio, panic_unwind, termination_trait_lib, test)
+)]
 #![deny(rust_2018_idioms)]
 #![allow(
     clippy::pub_enum_variant_names,
@@ -12,10 +10,6 @@
     clippy::cast_sign_loss,
     clippy::cast_precision_loss
 )]
-
-use getopts;
-
-extern crate test;
 
 #[cfg(any(unix, target_os = "cloudabi"))]
 extern crate libc;
@@ -26,13 +20,12 @@ extern crate libc;
 //                libtest won't be fully functional on this platform.
 //
 // See also: https://github.com/rust-lang/rust/issues/54190#issuecomment-422904437
-#[cfg(not(all(windows, target_arch = "aarch64")))]
+#[cfg(all(features = "unstable", not(all(windows, target_arch = "aarch64"))))]
 extern crate panic_unwind;
 
 use std::{
     any::Any,
     borrow::Cow,
-    boxed::FnBox,
     cmp,
     collections::BTreeMap,
     env, fmt,
@@ -40,7 +33,7 @@ use std::{
     io::{self, prelude::*},
     panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
-    process::{self, Termination},
+    process,
     sync::{
         mpsc::{channel, Sender},
         Arc, Mutex,
@@ -49,11 +42,41 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(feature = "unstable")]
+use std::process::Termination;
+pub use termcolor::ColorChoice;
+
 const TEST_WARN_TIMEOUT_S: u64 = 60;
 const QUIET_MODE_MAX_COLUMN: usize = 100; // insert a '\n' after 100 tests in quiet mode
 
 mod formatters;
 pub mod stats;
+
+fn set_print(
+    sink: Option<Box<dyn Write + Send>>,
+) -> Option<Box<dyn Write + Send>> {
+    #[cfg(feature = "unstable")]
+    {
+        io::set_print(sink)
+    }
+    #[cfg(not(feature = "unstable"))]
+    {
+        sink
+    }
+}
+
+fn set_panic(
+    sink: Option<Box<dyn Write + Send>>,
+) -> Option<Box<dyn Write + Send>> {
+    #[cfg(feature = "unstable")]
+    {
+        io::set_panic(sink)
+    }
+    #[cfg(not(feature = "unstable"))]
+    {
+        sink
+    }
+}
 
 use crate::formatters::{
     JsonFormatter, OutputFormatter, PrettyFormatter, TerseFormatter,
@@ -142,7 +165,7 @@ pub trait TDynBenchFn: Send {
 pub enum TestFn {
     StaticTestFn(fn()),
     StaticBenchFn(fn(&mut Bencher)),
-    DynTestFn(Box<dyn FnBox() + Send>),
+    DynTestFn(Box<dyn FnMut() + Send>),
     DynBenchFn(Box<dyn TDynBenchFn + 'static>),
 }
 
@@ -303,6 +326,7 @@ pub fn test_main_static(tests: &[&TestDescAndFn]) {
 /// Invoked when unit tests terminate. Should panic if the unit
 /// Tests is considered a failure. By default, invokes `report()`
 /// and checks for a `0` result.
+#[cfg(feature = "unstable")]
 pub fn assert_test_result<T: Termination>(result: T) {
     let code = result.report();
     if code != 0 {
@@ -313,13 +337,6 @@ pub fn assert_test_result<T: Termination>(result: T) {
             code,
         );
     }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum ColorConfig {
-    AutoColor,
-    AlwaysColor,
-    NeverColor,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -347,7 +364,7 @@ pub struct TestOpts {
     pub bench_benchmarks: bool,
     pub logfile: Option<PathBuf>,
     pub nocapture: bool,
-    pub color: ColorConfig,
+    pub color: ColorChoice,
     pub format: OutputFormat,
     pub test_threads: Option<usize>,
     pub skip: Vec<String>,
@@ -367,7 +384,7 @@ impl TestOpts {
             bench_benchmarks: false,
             logfile: None,
             nocapture: false,
-            color: ColorConfig::AutoColor,
+            color: ColorChoice::Auto,
             format: OutputFormat::Pretty,
             test_threads: None,
             skip: vec![],
@@ -582,7 +599,7 @@ pub fn parse_opts(args: &[String]) -> Option<OptRes> {
             Ok(0) => {
                 return Some(Err(
                     "argument for --test-threads must not be 0".to_string()
-                ))
+                ));
             }
             Ok(n) => Some(n),
             Err(e) => {
@@ -597,9 +614,9 @@ pub fn parse_opts(args: &[String]) -> Option<OptRes> {
     };
 
     let color = match matches.opt_str("color").as_ref().map(|s| &**s) {
-        Some("auto") | None => ColorConfig::AutoColor,
-        Some("always") => ColorConfig::AlwaysColor,
-        Some("never") => ColorConfig::NeverColor,
+        Some("auto") | None => ColorChoice::Auto,
+        Some("always") => ColorChoice::Always,
+        Some("never") => ColorChoice::Never,
 
         Some(v) => {
             return Some(Err(format!(
@@ -671,8 +688,9 @@ pub enum TestResult {
 unsafe impl Send for TestResult {}
 
 enum OutputLocation<T> {
-    Pretty(Box<term::StdoutTerminal>),
-    Raw(T),
+    Pretty(termcolor::StandardStream),
+    #[allow(dead_code)]
+    Raw(T), // used in tests
 }
 
 impl<T: Write> Write for OutputLocation<T> {
@@ -823,10 +841,8 @@ pub fn list_tests_console(
         }
     }
 
-    let mut output = match term::stdout() {
-        None => OutputLocation::Raw(io::stdout()),
-        Some(t) => OutputLocation::Pretty(t),
-    };
+    let mut output: OutputLocation<Vec<u8>> =
+        OutputLocation::Pretty(termcolor::StandardStream::stdout(opts.color));
 
     let quiet = opts.format == OutputFormat::Terse;
     let mut st = ConsoleTestState::new(opts)?;
@@ -935,11 +951,8 @@ pub fn run_tests_console(
         }
     }
 
-    let output = match term::stdout() {
-        None => OutputLocation::Raw(io::stdout()),
-        Some(t) => OutputLocation::Pretty(t),
-    };
-
+    let output: OutputLocation<Vec<u8>> =
+        OutputLocation::Pretty(termcolor::StandardStream::stdout(opts.color));
     let max_name_len = tests
         .iter()
         .max_by_key(|t| len_if_padded(*t))
@@ -1023,9 +1036,9 @@ fn should_sort_failures_before_printing_them() {
 
 fn use_color(opts: &TestOpts) -> bool {
     match opts.color {
-        ColorConfig::AutoColor => !opts.nocapture && stdout_isatty(),
-        ColorConfig::AlwaysColor => true,
-        ColorConfig::NeverColor => false,
+        ColorChoice::Auto => !opts.nocapture && stdout_isatty(),
+        ColorChoice::Always | ColorChoice::AlwaysAnsi => true,
+        ColorChoice::Never => false,
     }
 }
 
@@ -1460,6 +1473,7 @@ pub fn convert_benchmarks_to_tests(
         .collect()
 }
 
+#[allow(clippy::redundant_closure)]
 pub fn run_test(
     opts: &TestOpts,
     force_ignore: bool,
@@ -1471,7 +1485,7 @@ pub fn run_test(
         desc: TestDesc,
         monitor_ch: Sender<MonitorMsg>,
         nocapture: bool,
-        testfn: Box<dyn FnBox() + Send>,
+        mut testfn: Box<dyn FnMut() + Send>,
         concurrency: Concurrent,
     ) {
         // Buffer for capturing standard I/O
@@ -1484,16 +1498,16 @@ pub fn run_test(
                 None
             } else {
                 Some((
-                    io::set_print(Some(Box::new(Sink(data2.clone())))),
-                    io::set_panic(Some(Box::new(Sink(data2)))),
+                    crate::set_print(Some(Box::new(Sink(data2.clone())))),
+                    crate::set_panic(Some(Box::new(Sink(data2)))),
                 ))
             };
 
-            let result = catch_unwind(AssertUnwindSafe(testfn));
+            let result = catch_unwind(AssertUnwindSafe(move || testfn()));
 
             if let Some((printio, panicio)) = oldio {
-                io::set_print(printio);
-                io::set_panic(panicio);
+                crate::set_print(printio);
+                crate::set_panic(panicio);
             };
 
             let test_result = calc_result(&desc, result);
@@ -1546,8 +1560,8 @@ pub fn run_test(
                 |harness| (benchfn)(harness),
             );
         }
-        TestFn::DynTestFn(f) => {
-            let cb = move || __rust_begin_short_backtrace(f);
+        TestFn::DynTestFn(mut f) => {
+            let cb = move || __rust_begin_short_backtrace(|| f());
             run_test_inner(
                 desc,
                 monitor_ch,
@@ -1568,7 +1582,7 @@ pub fn run_test(
 
 /// Fixed frame used to clean the backtrace with `RUST_BACKTRACE=1`.
 #[inline(never)]
-fn __rust_begin_short_backtrace<F: FnOnce()>(f: F) {
+fn __rust_begin_short_backtrace<F: FnMut()>(mut f: F) {
     f()
 }
 
@@ -1667,13 +1681,30 @@ fn ns_from_dur(dur: Duration) -> u64 {
     dur.as_secs() * 1_000_000_000 + u64::from(dur.subsec_nanos())
 }
 
+#[inline(never)]
+#[allow(clippy::needless_pass_by_value)]
+fn black_box<T>(x: T) -> T {
+    #[cfg(all(feature = "unstable", not(stage0)))]
+    {
+        std::hint::black_box(x)
+    }
+    #[cfg(any(not(feature = "unstable"), stage0))]
+    {
+        unsafe {
+            let v = std::ptr::read_volatile(&x as *const T);
+            std::mem::forget(x);
+            v
+        }
+    }
+}
+
 fn ns_iter_inner<T, F>(inner: &mut F, k: u64) -> u64
 where
     F: FnMut() -> T,
 {
     let start = Instant::now();
     for _ in 0..k {
-        test::black_box(inner());
+        black_box(inner());
     }
     ns_from_dur(start.elapsed())
 }
@@ -1748,14 +1779,14 @@ where
 
 pub mod bench {
     use super::{
-        BenchMode, BenchSamples, Bencher, MonitorMsg, Sender, Sink, TestDesc,
-        TestResult,
+        stats, BenchMode, BenchSamples, Bencher, MonitorMsg, Sender, Sink,
+        TestDesc, TestResult,
     };
-    use crate::stats;
-    use std::cmp;
-    use std::io;
-    use std::panic::{catch_unwind, AssertUnwindSafe};
-    use std::sync::{Arc, Mutex};
+    use std::{
+        cmp,
+        panic::{catch_unwind, AssertUnwindSafe},
+        sync::{Arc, Mutex},
+    };
 
     pub fn benchmark<F>(
         desc: TestDesc,
@@ -1778,16 +1809,16 @@ pub mod bench {
             None
         } else {
             Some((
-                io::set_print(Some(Box::new(Sink(data2.clone())))),
-                io::set_panic(Some(Box::new(Sink(data2)))),
+                crate::set_print(Some(Box::new(Sink(data2.clone())))),
+                crate::set_panic(Some(Box::new(Sink(data2)))),
             ))
         };
 
         let result = catch_unwind(AssertUnwindSafe(|| bs.bench(f)));
 
         if let Some((printio, panicio)) = oldio {
-            io::set_print(printio);
-            io::set_panic(panicio);
+            crate::set_print(printio);
+            crate::set_panic(panicio);
         };
 
         let test_result = match result {
