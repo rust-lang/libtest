@@ -599,7 +599,7 @@ pub fn parse_opts(args: &[String]) -> Option<OptRes> {
             Ok(0) => {
                 return Some(Err(
                     "argument for --test-threads must not be 0".to_string()
-                ))
+                ));
             }
             Ok(n) => Some(n),
             Err(e) => {
@@ -1690,7 +1690,11 @@ fn black_box<T>(x: T) -> T {
     }
     #[cfg(any(not(feature = "unstable"), stage0))]
     {
-        unsafe { std::ptr::read_volatile(&x as *const T) }
+        unsafe {
+            let v = std::ptr::read_volatile(&x as *const T);
+            std::mem::forget(x);
+            v
+        }
     }
 }
 
