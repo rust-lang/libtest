@@ -1,5 +1,8 @@
 //! Rust's built-in unit-test and micro-benchmarking framework.
-#![cfg_attr(any(unix, target_os = "cloudabi", target_os = "fuchsia"), feature(libc, rustc_private))]
+#![cfg_attr(
+    any(unix, target_os = "cloudabi", target_os = "fuchsia"),
+    feature(libc, rustc_private)
+)]
 #![feature(fnbox)]
 #![feature(set_stdio)]
 #![feature(panic_unwind)]
@@ -56,7 +59,8 @@ mod formatters;
 pub mod stats;
 
 use crate::formatters::{
-    JsonFormatter, OutputFormatter, PrettyFormatter, TerseFormatter,
+    JUnitFormatter, JsonFormatter, OutputFormatter, PrettyFormatter,
+    TerseFormatter,
 };
 
 /// Whether to execute tests concurrently or not
@@ -327,6 +331,7 @@ pub enum OutputFormat {
     Pretty,
     Terse,
     Json,
+    JUnit,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -441,8 +446,9 @@ fn optgroups() -> getopts::Options {
             "Configure formatting of output:
             pretty = Print verbose output;
             terse  = Display one character per test;
-            json   = Output a json document",
-            "pretty|terse|json",
+            json   = Output a json document;
+            junit  = Output a JUnit document",
+            "pretty|terse|json|junit",
         )
         .optopt(
             "Z",
@@ -622,10 +628,18 @@ pub fn parse_opts(args: &[String]) -> Option<OptRes> {
             }
             OutputFormat::Json
         }
+        Some("junit") => {
+            if !allow_unstable {
+                return Some(Err(
+                    "The \"junit\" format is only accepted on the nightly compiler".into(),
+                ));
+            }
+            OutputFormat::JUnit
+        }
 
         Some(v) => {
             return Some(Err(format!(
-                "argument for --format must be pretty, terse, or json (was \
+                "argument for --format must be pretty, terse, json, or junit (was \
                  {})",
                 v
             )));
@@ -704,6 +718,7 @@ struct ConsoleTestState {
     failures: Vec<(TestDesc, Vec<u8>)>,
     not_failures: Vec<(TestDesc, Vec<u8>)>,
     options: Options,
+    start_time: Instant,
 }
 
 impl ConsoleTestState {
@@ -726,6 +741,7 @@ impl ConsoleTestState {
             failures: Vec::new(),
             not_failures: Vec::new(),
             options: opts.options,
+            start_time: Instant::now(),
         })
     }
 
@@ -962,9 +978,9 @@ pub fn run_tests_console(
             is_multithreaded,
         )),
         OutputFormat::Json => Box::new(JsonFormatter::new(output)),
+        OutputFormat::JUnit => Box::new(JUnitFormatter::new(output)),
     };
     let mut st = ConsoleTestState::new(opts)?;
-
     run_tests(opts, tests, |x| callback(&x, &mut st, &mut *out))?;
 
     assert!(st.current_test_count() == st.total);
@@ -1008,6 +1024,7 @@ fn should_sort_failures_before_printing_them() {
         failures: vec![(test_b, Vec::new()), (test_a, Vec::new())],
         options: Options::new(),
         not_failures: Vec::new(),
+        start_time: Instant::now(),
     };
 
     out.write_failures(&st).unwrap();
