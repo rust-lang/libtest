@@ -1,5 +1,8 @@
 //! Rust's built-in unit-test and micro-benchmarking framework.
-#![cfg_attr(any(unix, target_os = "cloudabi", target_os = "fuchsia"), feature(libc, rustc_private))]
+#![cfg_attr(
+    any(unix, target_os = "cloudabi", target_os = "fuchsia"),
+    feature(libc, rustc_private)
+)]
 #![feature(fnbox)]
 #![feature(set_stdio)]
 #![feature(panic_unwind)]
@@ -79,10 +82,10 @@ pub enum TestName {
 }
 impl TestName {
     fn as_slice(&self) -> &str {
-        match *self {
+        match self {
             TestName::StaticTestName(s) => s,
-            TestName::DynTestName(ref s) => s,
-            TestName::AlignedTestName(ref s, _) => &*s,
+            TestName::DynTestName(s) => s,
+            TestName::AlignedTestName(s, _) => s,
         }
     }
 
@@ -148,7 +151,7 @@ pub enum TestFn {
 
 impl TestFn {
     fn padding(&self) -> NamePadding {
-        match *self {
+        match self {
             TestFn::StaticTestFn(..) | TestFn::DynTestFn(..) => {
                 NamePadding::PadNone
             }
@@ -161,7 +164,7 @@ impl TestFn {
 
 impl fmt::Debug for TestFn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match *self {
+        f.write_str(match self {
             TestFn::StaticTestFn(..) => "StaticTestFn(..)",
             TestFn::StaticBenchFn(..) => "StaticBenchFn(..)",
             TestFn::DynTestFn(..) => "DynTestFn(..)",
@@ -652,13 +655,13 @@ pub fn parse_opts(args: &[String]) -> Option<OptRes> {
     Some(Ok(test_opts))
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct BenchSamples {
     ns_iter_summ: stats::Summary,
     mb_s: usize,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum TestResult {
     TrOk,
     TrFailed,
@@ -677,16 +680,16 @@ enum OutputLocation<T> {
 
 impl<T: Write> Write for OutputLocation<T> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match *self {
-            OutputLocation::Pretty(ref mut term) => term.write(buf),
-            OutputLocation::Raw(ref mut stdout) => stdout.write(buf),
+        match self {
+            OutputLocation::Pretty(term) => term.write(buf),
+            OutputLocation::Raw(stdout) => stdout.write(buf),
         }
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        match *self {
-            OutputLocation::Pretty(ref mut term) => term.flush(),
-            OutputLocation::Raw(ref mut stdout) => stdout.flush(),
+        match self {
+            OutputLocation::Pretty(term) => term.flush(),
+            OutputLocation::Raw(stdout) => stdout.flush(),
         }
     }
 }
@@ -708,8 +711,8 @@ struct ConsoleTestState {
 
 impl ConsoleTestState {
     pub fn new(opts: &TestOpts) -> io::Result<Self> {
-        let log_out = match opts.logfile {
-            Some(ref path) => Some(File::create(path)?),
+        let log_out = match &opts.logfile {
+            Some(path) => Some(File::create(path)?),
             None => None,
         };
 
@@ -731,9 +734,9 @@ impl ConsoleTestState {
 
     pub fn write_log<S: AsRef<str>>(&mut self, msg: S) -> io::Result<()> {
         let msg = msg.as_ref();
-        match self.log_out {
+        match &mut self.log_out {
             None => Ok(()),
-            Some(ref mut o) => o.write_all(msg.as_bytes()),
+            Some(o) => o.write_all(msg.as_bytes()),
         }
     }
 
@@ -744,13 +747,13 @@ impl ConsoleTestState {
     ) -> io::Result<()> {
         self.write_log(format!(
             "{} {}\n",
-            match *result {
+            match result {
                 TestResult::TrOk => "ok".to_owned(),
                 TestResult::TrFailed => "failed".to_owned(),
-                TestResult::TrFailedMsg(ref msg) => format!("failed: {}", msg),
+                TestResult::TrFailedMsg(msg) => format!("failed: {}", msg),
                 TestResult::TrIgnored => "ignored".to_owned(),
                 TestResult::TrAllowedFail => "failed (allowed)".to_owned(),
-                TestResult::TrBench(ref bs) => fmt_bench_samples(bs),
+                TestResult::TrBench(bs) => fmt_bench_samples(bs),
             },
             test.name
         ))
@@ -881,24 +884,24 @@ pub fn run_tests_console(
         st: &mut ConsoleTestState,
         out: &mut dyn OutputFormatter,
     ) -> io::Result<()> {
-        match (*event).clone() {
-            TestEvent::TeFiltered(ref filtered_tests) => {
+        match event {
+            TestEvent::TeFiltered(filtered_tests) => {
                 st.total = filtered_tests.len();
                 out.write_run_start(filtered_tests.len())
             }
             TestEvent::TeFilteredOut(filtered_out) => {
-                st.filtered_out = filtered_out;
+                st.filtered_out = *filtered_out;
                 Ok(())
             }
-            TestEvent::TeWait(ref test) => out.write_test_start(test),
-            TestEvent::TeTimeout(ref test) => out.write_timeout(test),
+            TestEvent::TeWait(test) => out.write_test_start(test),
+            TestEvent::TeTimeout(test) => out.write_timeout(test),
             TestEvent::TeResult(test, result, stdout) => {
-                st.write_log_result(&test, &result)?;
-                out.write_result(&test, &result, &*stdout)?;
+                st.write_log_result(test, result)?;
+                out.write_result(test, result, stdout)?;
                 match result {
                     TestResult::TrOk => {
                         st.passed += 1;
-                        st.not_failures.push((test, stdout));
+                        st.not_failures.push((test.clone(), stdout.clone()));
                     }
                     TestResult::TrIgnored => st.ignored += 1,
                     TestResult::TrAllowedFail => st.allowed_fail += 1,
@@ -912,15 +915,15 @@ pub fn run_tests_console(
                     }
                     TestResult::TrFailed => {
                         st.failed += 1;
-                        st.failures.push((test, stdout));
+                        st.failures.push((test.clone(), stdout.clone()));
                     }
                     TestResult::TrFailedMsg(msg) => {
                         st.failed += 1;
-                        let mut stdout = stdout;
+                        let mut stdout = stdout.clone();
                         stdout.extend_from_slice(
                             format!("note: {}", msg).as_bytes(),
                         );
-                        st.failures.push((test, stdout));
+                        st.failures.push((test.clone(), stdout));
                     }
                 }
                 Ok(())
@@ -967,7 +970,7 @@ pub fn run_tests_console(
 
     run_tests(opts, tests, |x| callback(&x, &mut st, &mut *out))?;
 
-    assert!(st.current_test_count() == st.total);
+    assert_eq!(st.current_test_count(), st.total);
 
     out.write_run_finish(&st)
 }
@@ -1012,8 +1015,8 @@ fn should_sort_failures_before_printing_them() {
 
     out.write_failures(&st).unwrap();
     let s = match out.output_location() {
-        &OutputLocation::Raw(ref m) => String::from_utf8_lossy(&m[..]),
-        &OutputLocation::Pretty(_) => unreachable!(),
+        OutputLocation::Raw(m) => String::from_utf8_lossy(m),
+        OutputLocation::Pretty(_) => unreachable!(),
     };
 
     let apos = s.find("a").unwrap();
@@ -1119,10 +1122,10 @@ where
     };
 
     fn calc_timeout(running_tests: &TestMap) -> Option<Duration> {
-        running_tests.values().min().map(|next_timeout| {
+        running_tests.values().min().map(|&next_timeout| {
             let now = Instant::now();
-            if *next_timeout >= now {
-                *next_timeout - now
+            if next_timeout >= now {
+                next_timeout - now
             } else {
                 Duration::new(0, 0)
             }
@@ -1299,12 +1302,11 @@ fn get_concurrency() -> usize {
     fn num_cpus() -> usize {
         use std::ptr;
 
-        let mut cpus: libc::c_uint = 0;
+        let mut cpus = unsafe {
+            libc::sysconf(libc::_SC_NPROCESSORS_ONLN) as libc::c_uint
+        };
         let mut cpus_size = std::mem::size_of_val(&cpus);
 
-        unsafe {
-            cpus = libc::sysconf(libc::_SC_NPROCESSORS_ONLN) as libc::c_uint;
-        }
         if cpus < 1 {
             let mut mib = [libc::CTL_HW, libc::HW_NCPU, 0, 0];
             unsafe {
@@ -1312,7 +1314,7 @@ fn get_concurrency() -> usize {
                     mib.as_mut_ptr(),
                     2,
                     &mut cpus as *mut _ as *mut _,
-                    &mut cpus_size as *mut _ as *mut _,
+                    &mut cpus_size,
                     ptr::null_mut(),
                     0,
                 );
@@ -1337,7 +1339,7 @@ fn get_concurrency() -> usize {
                 mib.as_mut_ptr(),
                 2,
                 &mut cpus as *mut _ as *mut _,
-                &mut cpus_size as *mut _ as *mut _,
+                &mut cpus_size,
                 ptr::null_mut(),
                 0,
             );
@@ -1391,7 +1393,7 @@ pub fn filter_tests(
     };
 
     // Remove tests that don't match the test filter
-    if let Some(ref filter) = opts.filter {
+    if let Some(filter) = &opts.filter {
         filtered.retain(|test| matches_filter(test, filter));
     }
 
@@ -1576,15 +1578,15 @@ fn calc_result(
     desc: &TestDesc,
     task_result: Result<(), Box<dyn Any + Send>>,
 ) -> TestResult {
-    match (&desc.should_panic, task_result) {
+    match (&desc.should_panic, &task_result) {
         (&ShouldPanic::No, Ok(())) | (&ShouldPanic::Yes, Err(_)) => {
             TestResult::TrOk
         }
-        (&ShouldPanic::YesWithMessage(msg), Err(ref err)) => {
+        (&ShouldPanic::YesWithMessage(msg), Err(err)) => {
             if err
                 .downcast_ref::<String>()
                 .map(|e| &**e)
-                .or_else(|| err.downcast_ref::<&'static str>().cloned())
+                .or_else(|| err.downcast_ref::<&'static str>().copied())
                 .map_or(false, |e| e.contains(msg))
             {
                 TestResult::TrOk
@@ -1632,7 +1634,7 @@ impl MetricMap {
         let v = self
             .0
             .iter()
-            .map(|(k, v)| format!("{}: {} (+/- {})", *k, v.value, v.noise))
+            .map(|(k, v)| format!("{}: {} (+/- {})", k, v.value, v.noise))
             .collect::<Vec<_>>();
         v.join(", ")
     }
@@ -1881,7 +1883,7 @@ mod tests {
         let (tx, rx) = channel();
         run_test(&TestOpts::new(), false, desc, tx, Concurrent::No);
         let (_, res, _) = rx.recv().unwrap();
-        assert!(res != TestResult::TrOk);
+        assert_ne!(res, TestResult::TrOk);
     }
 
     #[test]
@@ -1899,7 +1901,7 @@ mod tests {
         let (tx, rx) = channel();
         run_test(&TestOpts::new(), false, desc, tx, Concurrent::No);
         let (_, res, _) = rx.recv().unwrap();
-        assert!(res == TestResult::TrIgnored);
+        assert_eq!(res, TestResult::TrIgnored);
     }
 
     #[test]
@@ -1919,7 +1921,7 @@ mod tests {
         let (tx, rx) = channel();
         run_test(&TestOpts::new(), false, desc, tx, Concurrent::No);
         let (_, res, _) = rx.recv().unwrap();
-        assert!(res == TestResult::TrOk);
+        assert_eq!(res, TestResult::TrOk);
     }
 
     #[test]
@@ -1939,7 +1941,7 @@ mod tests {
         let (tx, rx) = channel();
         run_test(&TestOpts::new(), false, desc, tx, Concurrent::No);
         let (_, res, _) = rx.recv().unwrap();
-        assert!(res == TestResult::TrOk);
+        assert_eq!(res, TestResult::TrOk);
     }
 
     #[test]
@@ -1961,11 +1963,9 @@ mod tests {
         let (tx, rx) = channel();
         run_test(&TestOpts::new(), false, desc, tx, Concurrent::No);
         let (_, res, _) = rx.recv().unwrap();
-        assert!(
-            res == TestResult::TrFailedMsg(format!(
-                "{} '{}'",
-                failed_msg, expected
-            ))
+        assert_eq!(
+            res,
+            TestResult::TrFailedMsg(format!("{} '{}'", failed_msg, expected))
         );
     }
 
@@ -1984,7 +1984,7 @@ mod tests {
         let (tx, rx) = channel();
         run_test(&TestOpts::new(), false, desc, tx, Concurrent::No);
         let (_, res, _) = rx.recv().unwrap();
-        assert!(res == TestResult::TrFailed);
+        assert_eq!(res, TestResult::TrFailed);
     }
 
     #[test]
@@ -2169,17 +2169,17 @@ mod tests {
         opts.run_tests = true;
 
         let names = vec![
-            "sha1::test".to_string(),
-            "isize::test_to_str".to_string(),
-            "isize::test_pow".to_string(),
-            "test::do_not_run_ignored_tests".to_string(),
-            "test::ignored_tests_result_in_ignored".to_string(),
-            "test::first_free_arg_should_be_a_filter".to_string(),
-            "test::parse_ignored_flag".to_string(),
-            "test::parse_include_ignored_flag".to_string(),
-            "test::filter_for_ignored_option".to_string(),
-            "test::run_include_ignored_option".to_string(),
-            "test::sort_tests".to_string(),
+            "sha1::test",
+            "isize::test_to_str",
+            "isize::test_pow",
+            "test::do_not_run_ignored_tests",
+            "test::ignored_tests_result_in_ignored",
+            "test::first_free_arg_should_be_a_filter",
+            "test::parse_ignored_flag",
+            "test::parse_include_ignored_flag",
+            "test::filter_for_ignored_option",
+            "test::run_include_ignored_option",
+            "test::sort_tests",
         ];
         let tests = {
             fn testfn() {}
@@ -2187,7 +2187,7 @@ mod tests {
             for name in &names {
                 let test = TestDescAndFn {
                     desc: TestDesc {
-                        name: TestName::DynTestName((*name).clone()),
+                        name: TestName::DynTestName(name.to_string()),
                         ignore: false,
                         should_panic: ShouldPanic::No,
                         allow_fail: false,
@@ -2201,21 +2201,21 @@ mod tests {
         let filtered = filter_tests(&opts, tests);
 
         let expected = vec![
-            "isize::test_pow".to_string(),
-            "isize::test_to_str".to_string(),
-            "sha1::test".to_string(),
-            "test::do_not_run_ignored_tests".to_string(),
-            "test::filter_for_ignored_option".to_string(),
-            "test::first_free_arg_should_be_a_filter".to_string(),
-            "test::ignored_tests_result_in_ignored".to_string(),
-            "test::parse_ignored_flag".to_string(),
-            "test::parse_include_ignored_flag".to_string(),
-            "test::run_include_ignored_option".to_string(),
-            "test::sort_tests".to_string(),
+            "isize::test_pow",
+            "isize::test_to_str",
+            "sha1::test",
+            "test::do_not_run_ignored_tests",
+            "test::filter_for_ignored_option",
+            "test::first_free_arg_should_be_a_filter",
+            "test::ignored_tests_result_in_ignored",
+            "test::parse_ignored_flag",
+            "test::parse_include_ignored_flag",
+            "test::run_include_ignored_option",
+            "test::sort_tests",
         ];
 
         for (a, b) in expected.iter().zip(filtered) {
-            assert!(*a == b.desc.name.to_string());
+            assert_eq!(*a, b.desc.name.to_string());
         }
     }
 
