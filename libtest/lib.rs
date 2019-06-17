@@ -1031,15 +1031,14 @@ fn use_color(opts: &TestOpts) -> bool {
 
 #[cfg(any(
     target_os = "cloudabi",
-    target_os = "redox",
     all(target_arch = "wasm32", not(target_os = "emscripten")),
     all(target_vendor = "fortanix", target_env = "sgx")
 ))]
 fn stdout_isatty() -> bool {
-    // FIXME: Implement isatty on Redox and SGX
+    // FIXME: Implement isatty on SGX
     false
 }
-#[cfg(any(unix, target_os = "fuchsia"))]
+#[cfg(any(unix, target_os = "fuchsia", target_os = "redox"))]
 fn stdout_isatty() -> bool {
     unsafe { libc::isatty(libc::STDOUT_FILENO) != 0 }
 }
