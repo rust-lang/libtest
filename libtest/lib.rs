@@ -1,6 +1,5 @@
 //! Rust's built-in unit-test and micro-benchmarking framework.
 #![cfg_attr(any(unix, target_os = "cloudabi", target_os = "fuchsia"), feature(libc, rustc_private))]
-#![feature(fnbox)]
 #![feature(set_stdio)]
 #![feature(panic_unwind)]
 #![feature(termination_trait_lib)]
@@ -32,7 +31,6 @@ extern crate panic_unwind;
 use std::{
     any::Any,
     borrow::Cow,
-    boxed::FnBox,
     cmp,
     collections::BTreeMap,
     env, fmt,
@@ -142,7 +140,7 @@ pub trait TDynBenchFn: Send {
 pub enum TestFn {
     StaticTestFn(fn()),
     StaticBenchFn(fn(&mut Bencher)),
-    DynTestFn(Box<dyn FnBox() + Send>),
+    DynTestFn(Box<dyn FnOnce() + Send>),
     DynBenchFn(Box<dyn TDynBenchFn + 'static>),
 }
 
@@ -1471,7 +1469,7 @@ pub fn run_test(
         desc: TestDesc,
         monitor_ch: Sender<MonitorMsg>,
         nocapture: bool,
-        testfn: Box<dyn FnBox() + Send>,
+        testfn: Box<dyn FnOnce() + Send>,
         concurrency: Concurrent,
     ) {
         // Buffer for capturing standard I/O
