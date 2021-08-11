@@ -1,3 +1,7 @@
+**Note:** This repository is no longer in use. The `test` crate lives [in the `rust-lang/rust` repository](https://github.com/rust-lang/rust/tree/master/library/test).
+
+---
+
 [![Build Status](https://travis-ci.com/rust-lang/libtest.svg?branch=master)](https://travis-ci.com/rust-lang/libtest) [![Build Status](https://dev.azure.com/rust-lang/libtest/_apis/build/status/libtest-CI?branchName=master)](https://dev.azure.com/rust-lang/libtest/_build/latest?definitionId=1&branchName=master) [![Latest Version]][crates.io] [![docs]][docs.rs]
 
 libtest - Rust's built-in unit-testing and benchmarking framework
