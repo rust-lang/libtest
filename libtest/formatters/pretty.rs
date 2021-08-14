@@ -64,8 +64,8 @@ impl<T: Write> PrettyFormatter<T> {
         word: &str,
         color: term::color::Color,
     ) -> io::Result<()> {
-        match self.out {
-            OutputLocation::Pretty(ref mut term) => {
+        match &mut self.out {
+            OutputLocation::Pretty(term) => {
                 if self.use_color {
                     term.fg(color)?;
                 }
@@ -75,7 +75,7 @@ impl<T: Write> PrettyFormatter<T> {
                 }
                 term.flush()
             }
-            OutputLocation::Raw(ref mut stdout) => {
+            OutputLocation::Raw(stdout) => {
                 stdout.write_all(word.as_bytes())?;
                 stdout.flush()
             }
@@ -95,7 +95,7 @@ impl<T: Write> PrettyFormatter<T> {
         self.write_plain("\nsuccesses:\n")?;
         let mut successes = Vec::new();
         let mut stdouts = String::new();
-        for &(ref f, ref stdout) in &state.not_failures {
+        for (f, stdout) in &state.not_failures {
             successes.push(f.name.to_string());
             if !stdout.is_empty() {
                 stdouts.push_str(&format!("---- {} stdout ----\n", f.name));
@@ -124,7 +124,7 @@ impl<T: Write> PrettyFormatter<T> {
         self.write_plain("\nfailures:\n")?;
         let mut failures = Vec::new();
         let mut fail_out = String::new();
-        for &(ref f, ref stdout) in &state.failures {
+        for (f, stdout) in &state.failures {
             failures.push(f.name.to_string());
             if !stdout.is_empty() {
                 fail_out.push_str(&format!("---- {} stdout ----\n", f.name));
@@ -182,14 +182,14 @@ impl<T: Write> OutputFormatter for PrettyFormatter<T> {
             self.write_test_name(desc)?;
         }
 
-        match *result {
+        match result {
             TestResult::TrOk => self.write_ok(),
             TestResult::TrFailed | TestResult::TrFailedMsg(_) => {
                 self.write_failed()
             }
             TestResult::TrIgnored => self.write_ignored(),
             TestResult::TrAllowedFail => self.write_allowed_fail(),
-            TestResult::TrBench(ref bs) => {
+            TestResult::TrBench(bs) => {
                 self.write_bench()?;
                 self.write_plain(&format!(": {}\n", fmt_bench_samples(bs)))
             }
